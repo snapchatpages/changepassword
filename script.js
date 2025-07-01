@@ -32,13 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
             token: code,
             email: email
         }).then(({ data, error }) => {
+            loadingMessage.style.display = 'none'; // Hide loading message after verification attempt
             if (error) {
                 console.error('Error verifying recovery code:', error);
                 showMessage('Invalid or expired reset link.', true);
             } else {
                 console.log('Session set via recovery code:', data);
-                // Optionally set the session if not automatically done
-                // SupabaseLoad.auth.setSession(data.session);
+                SupabaseLoad.auth.setSession(data.session); // Set session if not automatically done
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
         });
