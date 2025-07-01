@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reset Password</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 50px auto;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .error-message {
+      color: #d00;
+      margin-top: 10px;
+    }
+
+    .success-message {
+      color: #080;
+      margin-top: 10px;
+    }
+
+    #loading-message {
+      color: #555;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Reset Your Password</h2>
+
+  <div id="loading-message">Loading, please wait...</div>
+
+  <form id="password-form" style="display: none;">
+    <input type="password" id="new-password" placeholder="New Password" required>
+    <input type="password" id="confirm-password" placeholder="Confirm Password" required>
+    <button type="submit" id="update-password-btn">Save New Password</button>
+  </form>
+
+  <div id="message"></div>
+
+  <!-- Load Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Your custom script -->
+  <script src="script.js"></script>
+</body>
+</html>
