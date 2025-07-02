@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,29 +14,34 @@
   </form>
 
   <script>
-    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co'; // ✅ Your Supabase URL
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg'; // ✅ Your anon key
+    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     async function handlePasswordReset() {
       const url = new URL(window.location.href);
-      const code = url.searchParams.get('code');
+      const token = url.searchParams.get('token');
+      const type = url.searchParams.get('type');
 
-      if (!code) {
-        document.getElementById('message').textContent = 'Missing reset code in URL.';
+      if (!token || type !== 'recovery') {
+        document.getElementById('message').textContent = 'Invalid or missing reset token.';
         return;
       }
 
-      // Exchange the code for a session
-      const { data, error } = await client.auth.exchangeCodeForSession(code);
+      // ✅ Verify OTP using token (instead of code exchange)
+      const { data, error } = await client.auth.verifyOtp({
+        token,
+        type: 'recovery'
+      });
 
       if (error) {
-        document.getElementById('message').textContent = 'Invalid or expired code.';
+        console.error(error);
+        document.getElementById('message').textContent = 'Token is invalid or expired.';
         return;
       }
 
-      document.getElementById('message').textContent = 'Enter your new password below.';
+      document.getElementById('message').textContent = 'Enter your new password:';
       document.getElementById('reset-form').style.display = 'block';
     }
 
@@ -51,7 +55,7 @@
         alert('Error resetting password: ' + error.message);
       } else {
         alert('Password has been reset successfully!');
-        window.location.href = 'https://your-app.com/login'; // ✅ Optional redirect
+        window.location.href = 'https://your-app.com/login'; // Optional redirect
       }
     });
 
