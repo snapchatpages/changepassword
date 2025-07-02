@@ -1,61 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reset Password</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-weight: bold;
+    }
+    #reset-form {
+      display: none;
+    }
+  </style>
 </head>
 <body>
   <h2>Reset Your Password</h2>
   <div id="message">Loading...</div>
-  <form id="reset-form" style="display: none;">
-    <input type="password" id="new-password" placeholder="New password" required />
+
+  <form id="reset-form">
+    <input type="password" id="new-password" placeholder="Enter new password" required />
     <button type="submit">Reset Password</button>
   </form>
 
   <script>
     const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
+    const SUPABASE_ANON_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     async function handlePasswordReset() {
       const url = new URL(window.location.href);
-      const token = url.searchParams.get('token');
-      const type = url.searchParams.get('type');
+      const code = url.searchParams.get('code');
+      const messageEl = document.getElementById('message');
+      const formEl = document.getElementById('reset-form');
 
-      if (!token || type !== 'recovery') {
-        document.getElementById('message').textContent = 'Invalid or missing reset token.';
+      console.log('🔑 Received code from URL:', code);
+
+      if (!code) {
+        messageEl.textContent = '❌ Missing code in URL.';
         return;
       }
 
-      // ✅ Verify OTP using token (instead of code exchange)
-      const { data, error } = await client.auth.verifyOtp({
-        token,
-        type: 'recovery'
-      });
+      messageEl.textContent = '🔄 Verifying...';
+
+      const { error } = await client.auth.exchangeCodeForSession(code);
 
       if (error) {
-        console.error(error);
-        document.getElementById('message').textContent = 'Token is invalid or expired.';
+        console.error('❌ Error exchanging code:', error.message);
+        messageEl.textContent = '❌ Code is invalid or expired.';
         return;
       }
 
-      document.getElementById('message').textContent = 'Enter your new password:';
-      document.getElementById('reset-form').style.display = 'block';
+      console.log('✅ Code exchanged successfully. User is now authenticated.');
+      messageEl.textContent = '✅ Code verified. You can now reset your password.';
+      formEl.style.display = 'block';
     }
 
     document.getElementById('reset-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const newPassword = document.getElementById('new-password').value;
 
-      const { data, error } = await client.auth.updateUser({ password: newPassword });
+      const { error } = await client.auth.updateUser({ password: newPassword });
 
       if (error) {
-        alert('Error resetting password: ' + error.message);
+        alert('❌ Error resetting password: ' + error.message);
       } else {
-        alert('Password has been reset successfully!');
-        window.location.href = 'https://your-app.com/login'; // Optional redirect
+        alert('✅ Password has been reset successfully!');
+        // ✅ Change this to your app's login or home screen
+        window.location.href = 'https://your-app.com/login';
       }
     });
 
