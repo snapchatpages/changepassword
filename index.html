@@ -1,7 +1,8 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Reset Password</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 </head>
@@ -14,12 +15,12 @@
   </form>
 
   <script>
-    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co'; // replace
-    const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // replace
+    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co'; // ✅ Your Supabase URL
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg'; // ✅ Your anon key
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function start() {
+    async function handlePasswordReset() {
       const url = new URL(window.location.href);
       const code = url.searchParams.get('code');
 
@@ -32,11 +33,11 @@
       const { data, error } = await client.auth.exchangeCodeForSession(code);
 
       if (error) {
-        document.getElementById('message').textContent = 'Code is invalid or expired.';
+        document.getElementById('message').textContent = 'Invalid or expired code.';
         return;
       }
 
-      document.getElementById('message').textContent = 'Enter your new password:';
+      document.getElementById('message').textContent = 'Enter your new password below.';
       document.getElementById('reset-form').style.display = 'block';
     }
 
@@ -47,14 +48,14 @@
       const { data, error } = await client.auth.updateUser({ password: newPassword });
 
       if (error) {
-        alert('Failed to update password: ' + error.message);
+        alert('Error resetting password: ' + error.message);
       } else {
-        alert('Password updated successfully!');
-        window.location.href = 'https://your-app.com/login';
+        alert('Password has been reset successfully!');
+        window.location.href = 'https://your-app.com/login'; // ✅ Optional redirect
       }
     });
 
-    start();
+    handlePasswordReset();
   </script>
 </body>
 </html>
