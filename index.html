@@ -1,0 +1,61 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reset Password</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+  <h2>Reset Your Password</h2>
+  <div id="message"></div>
+  <form id="reset-form">
+    <input type="password" id="new-password" placeholder="New password" required />
+    <button type="submit">Reset Password</button>
+  </form>
+
+  <script>
+    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co'; // replace with your project URL
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg'; // replace with your anon key
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function handlePasswordReset() {
+      const url = new URL(window.location.href);
+      const access_token = url.searchParams.get('access_token');
+      const type = url.searchParams.get('type');
+
+      if (access_token && type === 'recovery') {
+        // Set the session using the token from the URL
+        const { data, error } = await supabase.auth.setSession({
+          access_token,
+          refresh_token: '' // can be empty for password recovery
+        });
+
+        if (error) {
+          document.getElementById('message').textContent = 'Error: ' + error.message;
+        } else {
+          document.getElementById('message').textContent = 'Enter your new password below.';
+        }
+      }
+    }
+
+    document.getElementById('reset-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById('new-password').value;
+
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) {
+        alert('Error resetting password: ' + error.message);
+      } else {
+        alert('Password has been reset successfully!');
+        // Optionally redirect
+        window.location.href = 'https://your-app.com/login';
+      }
+    });
+
+    handlePasswordReset();
+  </script>
+</body>
+</html>
