@@ -1,53 +1,145 @@
-<!-- send-reset.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Send Password Reset Link</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      max-width: 400px;
-      margin: 100px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Send Password Reset Link</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-  <h2>Send Password Reset Link</h2>
-  <form id="email-form">
-    <input type="email" id="email" placeholder="Enter your email" required />
-    <button type="submit">Send Reset Link</button>
-  </form>
+    <h2>Send Password Reset Link</h2>
+    <form id="email-form">
+        <input type="email" id="email" placeholder="Enter your email" required />
+        <button type="submit">Send Reset Link</button>
+    </form>
 
-  <script>
-    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
+    <script>
+        const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwNjcwNTN9.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
 
-    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    document.getElementById('email-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim().toLowerCase();
+        document.getElementById('email-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim().toLowerCase();
 
-      const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
-      });
+            // 1. Check if email exists in any of your data tables (students, teachers, parents)
+            let userFoundInDatabase = false;
+            let tableName = '';
 
-      if (error) {
-        alert('❌ Error: ' + error.message);
-      } else {
-        alert('✅ A reset link was sent to ' + email);
-      }
-    });
-  </script>
+            const tables = ['students', 'teachers', 'parents'];
+
+            for (const table of tables) {
+                const { data, error } = await client
+                    .from(table)
+                    .select('email')
+                    .eq('email', email)
+                    .single();
+
+                if (data) {
+                    userFoundInDatabase = true;
+                    tableName = table; // Optionally keep track of which table the user was found in
+                    break; // Exit loop once found
+                }
+                if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+                    console.error(`Error checking ${table} table:`, error.message);
+                    // Decide if you want to alert this error or just proceed
+                }
+            }
+
+            if (!userFoundInDatabase) {
+                alert('Account not found. Please ensure you have registered with this email.');
+                return; // Stop execution if email not in your database tables
+            }
+
+            // 2. Email exists in one of your data tables. Now check if it has a Supabase Auth account.
+            // Supabase's `resetPasswordForEmail` handles whether an account exists.
+            // If the email is not registered in Supabase Auth, it won't send a link.
+            // We'll try to sign up if it doesn't have an auth account.
+
+            try {
+                // Attempt to sign in (even though we're not actually signing in,
+                // this is a way to check if an account exists via Supabase Auth without exposing user data)
+                const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
+                    email: email,
+                    password: 'thisisadummyemailandpasswordtocheckifaccountexists', // Use a dummy password
+                });
+
+                let userHasAuthAccount = false;
+                if (signInError && signInError.message === 'Invalid login credentials') {
+                    // This is a good indication that the email exists in the database
+                    // but the password doesn't match, so an auth account likely exists.
+                    userHasAuthAccount = true;
+                } else if (signInData && signInData.user) {
+                    // This case means a user somehow signed in with the dummy password
+                    // which is highly unlikely but indicates an account exists.
+                    userHasAuthAccount = true;
+                    // You might want to sign out the user immediately if this happens unexpectedly
+                    await client.auth.signOut();
+                } else if (signInError && signInError.message.includes('User not found')) {
+                    // This error specifically indicates that no auth account exists for the email.
+                    userHasAuthAccount = false;
+                } else if (signInError) {
+                    console.error("Unexpected error during signInWithPassword check:", signInError.message);
+                    // Handle other potential errors during the signInWithPassword check
+                }
+
+
+                if (!userHasAuthAccount) {
+                    // If no Supabase Auth account, create one with a random password
+                    const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    const { data: signUpData, error: signUpError } = await client.auth.signUp({
+                        email: email,
+                        password: randomPassword,
+                    });
+
+                    if (signUpError) {
+                        alert('❌ Error creating account: ' + signUpError.message);
+                        return;
+                    } else {
+                        // Account created, now send the password reset link
+                        const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
+                            redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
+                        });
+
+                        if (resetError) {
+                            alert('❌ Error sending reset link after creating account: ' + resetError.message);
+                        } else {
+                            alert('✅ Account created and a password reset link was sent to ' + email);
+                        }
+                    }
+                } else {
+                    // User has an existing Supabase Auth account, just send the reset link
+                    const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
+                        redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
+                    });
+
+                    if (resetError) {
+                        alert('❌ Error sending reset link: ' + resetError.message);
+                    } else {
+                        alert('✅ A password reset link was sent to ' + email);
+                    }
+                }
+
+            } catch (error) {
+                console.error('An unexpected error occurred:', error.message);
+                alert('An unexpected error occurred. Please try again.');
+            }
+        });
+    </script>
 </body>
 </html>
