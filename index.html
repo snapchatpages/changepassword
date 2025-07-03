@@ -23,7 +23,7 @@
       padding: 10px 20px;
       font-weight: bold;
     }
-    #reset-form {
+    #reset-form, #email-form {
       display: none;
     }
   </style>
@@ -32,6 +32,13 @@
   <h2>Reset Your Password</h2>
   <div id="message">Loading...</div>
 
+  <!-- Email entry form -->
+  <form id="email-form">
+    <input type="email" id="email" placeholder="Enter your email" required />
+    <button type="submit">Send Reset Link</button>
+  </form>
+
+  <!-- New password form -->
   <form id="reset-form">
     <input type="password" id="new-password" placeholder="Enter new password" required />
     <button type="submit">Reset Password</button>
@@ -39,55 +46,69 @@
 
   <script>
     const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
-    const SUPABASE_ANON_KEY =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    async function handlePasswordReset() {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get('code');
-      const messageEl = document.getElementById('message');
-      const formEl = document.getElementById('reset-form');
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
+    const messageEl = document.getElementById('message');
+    const emailForm = document.getElementById('email-form');
+    const resetForm = document.getElementById('reset-form');
 
-      console.log('🔑 Received code from URL:', code);
-
-      if (!code) {
-        messageEl.textContent = '❌ Missing code in URL.';
-        return;
-      }
-
+    // CASE 1: Link includes ?code (user returning from email)
+    if (code) {
       messageEl.textContent = '🔄 Verifying...';
+      emailForm.style.display = 'none';
 
-      const { error } = await client.auth.exchangeCodeForSession(code);
+      client.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          console.error('❌ Error exchanging code:', error.message);
+          messageEl.textContent = '❌ Code is invalid or expired.';
+        } else {
+          console.log('✅ Code exchanged successfully.');
+          messageEl.textContent = '✅ Code verified. You can now reset your password.';
+          resetForm.style.display = 'block';
+        }
+      });
 
-      if (error) {
-        console.error('❌ Error exchanging code:', error.message);
-        messageEl.textContent = '❌ Code is invalid or expired.';
-        return;
-      }
-
-      console.log('✅ Code exchanged successfully. User is now authenticated.');
-      messageEl.textContent = '✅ Code verified. You can now reset your password.';
-      formEl.style.display = 'block';
+    } else {
+      // CASE 2: No ?code → show email form
+      messageEl.textContent = 'Enter your email to receive a reset link.';
+      emailForm.style.display = 'block';
     }
 
-    document.getElementById('reset-form').addEventListener('submit', async (e) => {
+    // 🔄 Send reset link
+    emailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.href, // The same page
+      });
+
+      if (error) {
+        messageEl.textContent = '❌ Error: ' + error.message;
+      } else {
+        messageEl.textContent = '✅ Reset link sent to ' + email + '. Check your inbox.';
+        emailForm.style.display = 'none';
+      }
+    });
+
+    // ✅ Update password
+    resetForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const newPassword = document.getElementById('new-password').value;
 
       const { error } = await client.auth.updateUser({ password: newPassword });
 
       if (error) {
-        alert('❌ Error resetting password: ' + error.message);
+        alert('❌ Error: ' + error.message);
       } else {
-        alert('✅ Password has been reset successfully!');
-        // ✅ Change this to your app's login or home screen
-        window.location.href = 'https://your-app.com/login';
+        alert('✅ Password updated! You can now log in.');
+        window.location.href = 'https://your-app.com/login'; // <-- Change to your app
       }
     });
-
-    handlePasswordReset();
   </script>
 </body>
 </html>
