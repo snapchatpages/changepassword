@@ -13,15 +13,10 @@
       padding: 20px;
       text-align: center;
     }
-    input {
+    input, button {
       width: 100%;
       padding: 10px;
       margin-top: 10px;
-    }
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      font-weight: bold;
     }
     #reset-form, #email-form {
       display: none;
@@ -29,16 +24,16 @@
   </style>
 </head>
 <body>
-  <h2>Reset Your Password</h2>
+  <h2 id="page-title">Reset Password</h2>
   <div id="message">Loading...</div>
 
-  <!-- Email entry form -->
+  <!-- Email Input Form -->
   <form id="email-form">
     <input type="email" id="email" placeholder="Enter your email" required />
     <button type="submit">Send Reset Link</button>
   </form>
 
-  <!-- New password form -->
+  <!-- New Password Form -->
   <form id="reset-form">
     <input type="password" id="new-password" placeholder="Enter new password" required />
     <button type="submit">Reset Password</button>
@@ -46,67 +41,74 @@
 
   <script>
     const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // truncated for clarity
 
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const url = new URL(window.location.href);
     const code = url.searchParams.get('code');
     const messageEl = document.getElementById('message');
-    const emailForm = document.getElementById('email-form');
-    const resetForm = document.getElementById('reset-form');
+    const formEmail = document.getElementById('email-form');
+    const formReset = document.getElementById('reset-form');
+    const title = document.getElementById('page-title');
 
-    // CASE 1: Link includes ?code (user returning from email)
+    // User just opened the page — decide what to show
     if (code) {
-      messageEl.textContent = '🔄 Verifying...';
-      emailForm.style.display = 'none';
-
-      client.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          console.error('❌ Error exchanging code:', error.message);
-          messageEl.textContent = '❌ Code is invalid or expired.';
-        } else {
-          console.log('✅ Code exchanged successfully.');
-          messageEl.textContent = '✅ Code verified. You can now reset your password.';
-          resetForm.style.display = 'block';
-        }
-      });
-
+      handleCodeExchange(code);
     } else {
-      // CASE 2: No ?code → show email form
-      messageEl.textContent = 'Enter your email to receive a reset link.';
-      emailForm.style.display = 'block';
+      // Show email input
+      messageEl.textContent = '';
+      formEmail.style.display = 'block';
+      title.textContent = 'Request Password Reset';
     }
 
-    // 🔄 Send reset link
-    emailForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim().toLowerCase();
-
-      const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.href, // The same page
-      });
-
-      if (error) {
-        messageEl.textContent = '❌ Error: ' + error.message;
-      } else {
-        messageEl.textContent = '✅ Reset link sent to ' + email + '. Check your inbox.';
-        emailForm.style.display = 'none';
+    async function handleCodeExchange(code) {
+      messageEl.textContent = '🔄 Verifying reset link...';
+      try {
+        const { error } = await client.auth.exchangeCodeForSession(code);
+        if (error) {
+          messageEl.textContent = '❌ Invalid or expired link.';
+          console.error('Exchange error:', error);
+        } else {
+          messageEl.textContent = '✅ Link verified. Set your new password.';
+          formReset.style.display = 'block';
+          title.textContent = 'Set New Password';
+        }
+      } catch (err) {
+        messageEl.textContent = '❌ Unexpected error.';
+        console.error(err);
       }
-    });
+    }
 
-    // ✅ Update password
-    resetForm.addEventListener('submit', async (e) => {
+    // Handle reset password form
+    formReset.addEventListener('submit', async (e) => {
       e.preventDefault();
       const newPassword = document.getElementById('new-password').value;
-
       const { error } = await client.auth.updateUser({ password: newPassword });
 
       if (error) {
         alert('❌ Error: ' + error.message);
       } else {
-        alert('✅ Password updated! You can now log in.');
-        window.location.href = 'https://your-app.com/login'; // <-- Change to your app
+        alert('✅ Password updated successfully!');
+        window.location.href = 'https://your-app.com/login'; // change this
+      }
+    });
+
+    // Handle email form
+    formEmail.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+
+      if (!email) return alert('Please enter your email');
+
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://changepassword-kappa.vercel.app'
+      });
+
+      if (error) {
+        alert('❌ Error: ' + error.message);
+      } else {
+        alert('✅ Reset link sent to ' + email);
       }
     });
   </script>
