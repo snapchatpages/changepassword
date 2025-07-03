@@ -1,0 +1,53 @@
+<!-- send-reset.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Send Password Reset Link</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 400px;
+      margin: 100px auto;
+      padding: 20px;
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Send Password Reset Link</h2>
+  <form id="email-form">
+    <input type="email" id="email" placeholder="Enter your email" required />
+    <button type="submit">Send Reset Link</button>
+  </form>
+
+  <script>
+    const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    document.getElementById('email-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
+      });
+
+      if (error) {
+        alert('❌ Error: ' + error.message);
+      } else {
+        alert('✅ A reset link was sent to ' + email);
+      }
+    });
+  </script>
+</body>
+</html>
