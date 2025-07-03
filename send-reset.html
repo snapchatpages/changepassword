@@ -29,6 +29,7 @@
 
     <script>
         const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
+        // Corrected Anonymous Key
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
 
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -39,25 +40,27 @@
 
             // 1. Check if email exists in any of your data tables (students, teachers, parents)
             let userFoundInDatabase = false;
-            let tableName = '';
 
-            const tables = ['students', 'teachers', 'parents'];
+            const tableConfigs = [
+                { name: 'students', emailColumn: 'email' },
+                { name: 'teachers', emailColumn: 'teacheremail' },
+                { name: 'parents', emailColumn: 'parentemail' }
+            ];
 
-            for (const table of tables) {
+            for (const config of tableConfigs) {
                 const { data, error } = await client
-                    .from(table)
-                    .select('email')
-                    .eq('email', email)
+                    .from(config.name)
+                    .select(config.emailColumn)
+                    .eq(config.emailColumn, email)
                     .single();
 
                 if (data) {
                     userFoundInDatabase = true;
-                    tableName = table; // Optionally keep track of which table the user was found in
+                    console.log(`Email found in ${config.name} table.`);
                     break; // Exit loop once found
                 }
                 if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
-                    console.error(`Error checking ${table} table:`, error.message);
-                    // Decide if you want to alert this error or just proceed
+                    console.error(`Error checking ${config.name} table:`, error.message);
                 }
             }
 
@@ -67,37 +70,30 @@
             }
 
             // 2. Email exists in one of your data tables. Now check if it has a Supabase Auth account.
-            // Supabase's `resetPasswordForEmail` handles whether an account exists.
-            // If the email is not registered in Supabase Auth, it won't send a link.
-            // We'll try to sign up if it doesn't have an auth account.
-
+            // We'll attempt to sign in with a dummy password to check for an existing auth account.
             try {
-                // Attempt to sign in (even though we're not actually signing in,
-                // this is a way to check if an account exists via Supabase Auth without exposing user data)
                 const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
                     email: email,
-                    password: 'thisisadummyemailandpasswordtocheckifaccountexists', // Use a dummy password
+                    password: 'thisisadummyemailtoCHECKforaccountExistence123!@#', // Use a dummy password
                 });
 
                 let userHasAuthAccount = false;
                 if (signInError && signInError.message === 'Invalid login credentials') {
-                    // This is a good indication that the email exists in the database
-                    // but the password doesn't match, so an auth account likely exists.
+                    // This indicates an auth account exists but the password doesn't match.
                     userHasAuthAccount = true;
                 } else if (signInData && signInData.user) {
-                    // This case means a user somehow signed in with the dummy password
-                    // which is highly unlikely but indicates an account exists.
+                    // This scenario is highly unlikely with a dummy password,
+                    // but it means an auth account exists and the dummy password somehow worked (e.g., if there's no password).
                     userHasAuthAccount = true;
-                    // You might want to sign out the user immediately if this happens unexpectedly
+                    // It's good practice to sign out if this happens unexpectedly
                     await client.auth.signOut();
                 } else if (signInError && signInError.message.includes('User not found')) {
                     // This error specifically indicates that no auth account exists for the email.
                     userHasAuthAccount = false;
                 } else if (signInError) {
-                    console.error("Unexpected error during signInWithPassword check:", signInError.message);
-                    // Handle other potential errors during the signInWithPassword check
+                    // Log any other unexpected errors during the signInWithPassword check
+                    console.error("Unexpected error during Supabase Auth check:", signInError.message);
                 }
-
 
                 if (!userHasAuthAccount) {
                     // If no Supabase Auth account, create one with a random password
@@ -109,6 +105,7 @@
 
                     if (signUpError) {
                         alert('❌ Error creating account: ' + signUpError.message);
+                        console.error('Sign up error:', signUpError);
                         return;
                     } else {
                         // Account created, now send the password reset link
@@ -118,6 +115,7 @@
 
                         if (resetError) {
                             alert('❌ Error sending reset link after creating account: ' + resetError.message);
+                            console.error('Reset link error after signup:', resetError);
                         } else {
                             alert('✅ Account created and a password reset link was sent to ' + email);
                         }
@@ -130,13 +128,14 @@
 
                     if (resetError) {
                         alert('❌ Error sending reset link: ' + resetError.message);
+                        console.error('Reset link error for existing account:', resetError);
                     } else {
                         alert('✅ A password reset link was sent to ' + email);
                     }
                 }
 
             } catch (error) {
-                console.error('An unexpected error occurred:', error.message);
+                console.error('An unexpected JavaScript error occurred:', error.message);
                 alert('An unexpected error occurred. Please try again.');
             }
         });
