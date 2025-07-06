@@ -36,20 +36,20 @@
 
         <div id="message-box" class="mt-6 p-4 rounded-lg text-sm hidden"></div>
 
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
         <script>
-            // IMPORTANT: Replace with your actual Supabase Project URL and Anon Key
-            // The Anon Key is used here only to call the Edge Function, not for direct DB access.
             const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
-            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwNjU1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg'; // Your actual Anon Key
+            // Your Supabase Anon Key
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
 
-            // IMPORTANT: Replace with the URL of your deployed Edge Function
-            const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/resetpassword`; // Adjust function name if different
+            const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             const emailForm = document.getElementById('email-form');
             const emailInput = document.getElementById('email');
             const sendButton = document.getElementById('sendButton');
             const messageBox = document.getElementById('message-box');
 
+            // Function to display messages in the UI
             function showMessage(text, type = 'info') {
                 messageBox.textContent = text;
                 messageBox.className = 'mt-6 p-4 rounded-lg text-sm'; // Reset classes
@@ -68,31 +68,119 @@
                 const email = emailInput.value.trim().toLowerCase();
 
                 sendButton.disabled = true;
-                sendButton.textContent = 'Sending...';
-                showMessage('Processing your request...', 'info');
+                sendButton.textContent = 'Processing...';
+                showMessage('Checking account details...', 'info');
 
+                // 1. Check if email exists in any of your data tables (students, teachers, parents)
+                let userFoundInDatabase = false;
+
+                const tableConfigs = [
+                    { name: 'students', emailColumn: 'email' },
+                    { name: 'teachers', emailColumn: 'teacheremail' },
+                    { name: 'parents', emailColumn: 'parentemail' }
+                ];
+
+                for (const config of tableConfigs) {
+                    const { data, error } = await client
+                        .from(config.name)
+                        .select(config.emailColumn)
+                        .eq(config.emailColumn, email)
+                        .single();
+
+                    if (data) {
+                        userFoundInDatabase = true;
+                        console.log(`Email found in ${config.name} table.`);
+                        break; // Exit loop once found
+                    }
+                    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+                        console.error(`Error checking ${config.name} table:`, error.message);
+                    }
+                }
+
+                if (!userFoundInDatabase) {
+                    showMessage('Account not found. Please ensure you have registered with this email.', 'error');
+                    sendButton.disabled = false;
+                    sendButton.textContent = 'Send Reset Link';
+                    return; // Stop execution if email not in your database tables
+                }
+
+                showMessage('Verifying Supabase Auth account...', 'info');
+
+                // 2. Email exists in one of your data tables. Now check if it has a Supabase Auth account.
                 try {
-                    // Corrected: Use the EDGE_FUNCTION_URL variable and correctly format the Authorization header.
-                    const response = await fetch(EDGE_FUNCTION_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, // Use Anon Key variable
-                        },
-                        body: JSON.stringify({ email: email }),
+                    const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
+                        email: email,
+                        password: 'thisisadummyemailtoCHECKforaccountExistence123!@#', // Use a dummy password
                     });
 
-                    const data = await response.json();
+                    let userHasAuthAccount = false;
+                    if (signInError && signInError.message === 'Invalid login credentials') {
+                        // This indicates an auth account exists but the password doesn't match.
+                        userHasAuthAccount = true;
+                    } else if (signInData && signInData.user) {
+                        // This scenario is highly unlikely with a dummy password,
+                        // but it means an auth account exists and the dummy password somehow worked (e.g., if there's no password).
+                        userHasAuthAccount = true;
+                        // It's good practice to sign out if this happens unexpectedly
+                        await client.auth.signOut();
+                    } else if (signInError && signInError.message.includes('User not found')) {
+                        // This error specifically indicates that no auth account exists for the email.
+                        userHasAuthAccount = false;
+                    } else if (signInError) {
+                        console.error("Unexpected error during Supabase Auth check:", signInError.message);
+                        showMessage('An error occurred during account verification. Please try again.', 'error');
+                        sendButton.disabled = false;
+                        sendButton.textContent = 'Send Reset Link';
+                        return;
+                    }
 
-                    if (response.ok) { // Check if status code is 2xx
-                        showMessage(data.message || 'Request successful!', 'success');
+                    if (!userHasAuthAccount) {
+                        showMessage('Creating Supabase Auth account...', 'info');
+                        // If no Supabase Auth account, create one with a random password
+                        const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                        const { data: signUpData, error: signUpError } = await client.auth.signUp({
+                            email: email,
+                            password: randomPassword,
+                        });
+
+                        if (signUpError) {
+                            showMessage('❌ Error creating account: ' + signUpError.message, 'error');
+                            console.error('Sign up error:', signUpError);
+                            sendButton.disabled = false;
+                            sendButton.textContent = 'Send Reset Link';
+                            return;
+                        } else {
+                            showMessage('Account created. Sending password reset link...', 'info');
+                            // Account created, now send the password reset link
+                            const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
+                                redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
+                            });
+
+                            if (resetError) {
+                                showMessage('❌ Error sending reset link after creating account: ' + resetError.message, 'error');
+                                console.error('Reset link error after signup:', resetError);
+                            } else {
+                                showMessage('✅ Account created and a password reset link was sent to ' + email, 'success');
+                            }
+                        }
                     } else {
-                        showMessage(data.error || 'An unknown error occurred.', 'error');
+                        showMessage('Sending password reset link...', 'info');
+                        // User has an existing Supabase Auth account, just send the reset link
+                        const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
+                            redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
+                        });
+
+                        if (resetError) {
+                            showMessage('❌ Error sending reset link: ' + resetError.message, 'error');
+                            console.error('Reset link error for existing account:', resetError);
+                        } else {
+                            showMessage('✅ A password reset link was sent to ' + email, 'success');
+                        }
                     }
 
                 } catch (error) {
-                    console.error('Network or unexpected error:', error);
-                    showMessage('A network error occurred. Please try again.', 'error');
+                    console.error('An unexpected JavaScript error occurred:', error.message);
+                    showMessage('An unexpected error occurred. Please try again.', 'error');
                 } finally {
                     sendButton.disabled = false;
                     sendButton.textContent = 'Send Reset Link';
