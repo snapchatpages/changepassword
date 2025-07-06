@@ -4,141 +4,101 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Send Password Reset Link</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Custom font for a better look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
-            font-family: sans-serif;
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 20px;
-            text-align: center;
-        }
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
+            font-family: 'Inter', sans-serif;
         }
     </style>
 </head>
-<body>
-    <h2>Send Password Reset Link</h2>
-    <form id="email-form">
-        <input type="email" id="email" placeholder="Enter your email" required />
-        <button type="submit">Send Reset Link</button>
-    </form>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">Send Password Reset Link</h2>
+        <form id="email-form" class="space-y-4">
+            <input
+                type="email"
+                id="email"
+                placeholder="Enter your email"
+                required
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 ease-in-out text-gray-700"
+            />
+            <button
+                type="submit"
+                id="sendButton"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+            >
+                Send Reset Link
+            </button>
+        </form>
 
-    <script>
-        const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
-        // Corrected Anonymous Key
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwODA1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg';
+        <div id="message-box" class="mt-6 p-4 rounded-lg text-sm hidden"></div>
 
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        <script>
+            // IMPORTANT: Replace with your actual Supabase Project URL and Anon Key
+            // The Anon Key is used here only to call the Edge Function, not for direct DB access.
+            const SUPABASE_URL = 'https://qxluetvkqxillhqsbubl.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4bHVldHZrcXhpbGxocXNidWJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM5MzIwNTMsImV4cCI6MjA0OTUwNjU1M30.11cD0yE0aJW1OIx0kB4EaWtCvg5nUkj-0QuTVk-C7zg'; // Your actual Anon Key
 
-        document.getElementById('email-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value.trim().toLowerCase();
+            // IMPORTANT: Replace with the URL of your deployed Edge Function
+            const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/resetpassword`; // Adjust function name if different
 
-            // 1. Check if email exists in any of your data tables (students, teachers, parents)
-            let userFoundInDatabase = false;
+            const emailForm = document.getElementById('email-form');
+            const emailInput = document.getElementById('email');
+            const sendButton = document.getElementById('sendButton');
+            const messageBox = document.getElementById('message-box');
 
-            const tableConfigs = [
-                { name: 'students', emailColumn: 'email' },
-                { name: 'teachers', emailColumn: 'teacheremail' },
-                { name: 'parents', emailColumn: 'parentemail' }
-            ];
-
-            for (const config of tableConfigs) {
-                const { data, error } = await client
-                    .from(config.name)
-                    .select(config.emailColumn)
-                    .eq(config.emailColumn, email)
-                    .single();
-
-                if (data) {
-                    userFoundInDatabase = true;
-                    console.log(`Email found in ${config.name} table.`);
-                    break; // Exit loop once found
+            function showMessage(text, type = 'info') {
+                messageBox.textContent = text;
+                messageBox.className = 'mt-6 p-4 rounded-lg text-sm'; // Reset classes
+                if (type === 'success') {
+                    messageBox.classList.add('bg-green-100', 'text-green-800', 'border', 'border-green-400');
+                } else if (type === 'error') {
+                    messageBox.classList.add('bg-red-100', 'text-red-800', 'border', 'border-red-400');
+                } else { // info
+                    messageBox.classList.add('bg-blue-100', 'text-blue-800', 'border', 'border-blue-400');
                 }
-                if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
-                    console.error(`Error checking ${config.name} table:`, error.message);
-                }
+                messageBox.classList.remove('hidden');
             }
 
-            if (!userFoundInDatabase) {
-                alert('Account not found. Please ensure you have registered with this email.');
-                return; // Stop execution if email not in your database tables
-            }
+            emailForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = emailInput.value.trim().toLowerCase();
 
-            // 2. Email exists in one of your data tables. Now check if it has a Supabase Auth account.
-            // We'll attempt to sign in with a dummy password to check for an existing auth account.
-            try {
-                const { data: signInData, error: signInError } = await client.auth.signInWithPassword({
-                    email: email,
-                    password: 'thisisadummyemailtoCHECKforaccountExistence123!@#', // Use a dummy password
-                });
+                sendButton.disabled = true;
+                sendButton.textContent = 'Sending...';
+                showMessage('Processing your request...', 'info');
 
-                let userHasAuthAccount = false;
-                if (signInError && signInError.message === 'Invalid login credentials') {
-                    // This indicates an auth account exists but the password doesn't match.
-                    userHasAuthAccount = true;
-                } else if (signInData && signInData.user) {
-                    // This scenario is highly unlikely with a dummy password,
-                    // but it means an auth account exists and the dummy password somehow worked (e.g., if there's no password).
-                    userHasAuthAccount = true;
-                    // It's good practice to sign out if this happens unexpectedly
-                    await client.auth.signOut();
-                } else if (signInError && signInError.message.includes('User not found')) {
-                    // This error specifically indicates that no auth account exists for the email.
-                    userHasAuthAccount = false;
-                } else if (signInError) {
-                    // Log any other unexpected errors during the signInWithPassword check
-                    console.error("Unexpected error during Supabase Auth check:", signInError.message);
-                }
-
-                if (!userHasAuthAccount) {
-                    // If no Supabase Auth account, create one with a random password
-                    const randomPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                    const { data: signUpData, error: signUpError } = await client.auth.signUp({
-                        email: email,
-                        password: randomPassword,
+                try {
+                    // Corrected: Use the EDGE_FUNCTION_URL variable and correctly format the Authorization header.
+                    const response = await fetch(EDGE_FUNCTION_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, // Use Anon Key variable
+                        },
+                        body: JSON.stringify({ email: email }),
                     });
 
-                    if (signUpError) {
-                        alert('❌ Error creating account: ' + signUpError.message);
-                        console.error('Sign up error:', signUpError);
-                        return;
-                    } else {
-                        // Account created, now send the password reset link
-                        const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
-                            redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
-                        });
+                    const data = await response.json();
 
-                        if (resetError) {
-                            alert('❌ Error sending reset link after creating account: ' + resetError.message);
-                            console.error('Reset link error after signup:', resetError);
-                        } else {
-                            alert('✅ Account created and a password reset link was sent to ' + email);
-                        }
-                    }
-                } else {
-                    // User has an existing Supabase Auth account, just send the reset link
-                    const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
-                        redirectTo: 'https://changepassword-kappa.vercel.app/reset-password.html'
-                    });
-
-                    if (resetError) {
-                        alert('❌ Error sending reset link: ' + resetError.message);
-                        console.error('Reset link error for existing account:', resetError);
+                    if (response.ok) { // Check if status code is 2xx
+                        showMessage(data.message || 'Request successful!', 'success');
                     } else {
-                        alert('✅ A password reset link was sent to ' + email);
+                        showMessage(data.error || 'An unknown error occurred.', 'error');
                     }
+
+                } catch (error) {
+                    console.error('Network or unexpected error:', error);
+                    showMessage('A network error occurred. Please try again.', 'error');
+                } finally {
+                    sendButton.disabled = false;
+                    sendButton.textContent = 'Send Reset Link';
                 }
-
-            } catch (error) {
-                console.error('An unexpected JavaScript error occurred:', error.message);
-                alert('An unexpected error occurred. Please try again.');
-            }
-        });
-    </script>
+            });
+        </script>
+    </div>
 </body>
 </html>
